@@ -41,6 +41,8 @@ python main.py
 
 ## SLAM 建图
 
+启动后会同时打开 RViz，可视化 `/scan`、`/odom`、TF 和 `/map`：
+
 ```bash
 cd /home/fangqi/WorkXCJ/ros2_ws
 source install/setup.bash
@@ -53,6 +55,61 @@ ros2 launch fqplanner_nav_bridge mujoco_slam.launch.py backend_url:=http://127.0
 ros2 topic echo /scan --once
 ros2 topic echo /odom --once
 ros2 topic echo /map --once
+```
+
+建图时需要让机器人移动。另开一个终端发布 `/cmd_vel`，bridge 会把它转发到 MuJoCo 后端 `/cmd_vel`。
+
+方式一：键盘控制，推荐：
+
+```bash
+cd /home/fangqi/WorkXCJ/ros2_ws
+source install/setup.bash
+ros2 run teleop_twist_keyboard teleop_twist_keyboard
+```
+
+如果没有安装：
+
+```bash
+sudo apt install ros-$ROS_DISTRO-teleop-twist-keyboard
+```
+
+方式二：直接发速度指令：
+
+```bash
+ros2 topic pub /cmd_vel geometry_msgs/msg/Twist \
+"{linear: {x: 0.15, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}" \
+-r 5
+```
+
+原地转向：
+
+```bash
+ros2 topic pub /cmd_vel geometry_msgs/msg/Twist \
+"{linear: {x: 0.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.5}}" \
+-r 5
+```
+
+停止：
+
+```bash
+ros2 topic pub /cmd_vel geometry_msgs/msg/Twist \
+"{linear: {x: 0.0, y: 0.0, z: 0.0}, angular: {x: 0.0, y: 0.0, z: 0.0}}" \
+--once
+```
+
+保存 SLAM 地图：
+
+```bash
+mkdir -p /home/fangqi/WorkXCJ/FQPlanner_Mujoco/nav2/maps/slam
+ros2 run nav2_map_server map_saver_cli \
+  -f /home/fangqi/WorkXCJ/FQPlanner_Mujoco/nav2/maps/slam/mujoco_slam
+```
+
+保存后会得到：
+
+```text
+nav2/maps/slam/mujoco_slam.yaml
+nav2/maps/slam/mujoco_slam.pgm
 ```
 
 如果看到类似下面的 warning：
@@ -79,7 +136,31 @@ python nav2/map_generator.py --from-sim
 cd /home/fangqi/WorkXCJ/ros2_ws
 source install/setup.bash
 FQPLANNER_ROOT=/home/fangqi/WorkXCJ/FQPlanner_Mujoco \
-ros2 launch fqplanner_nav_bridge mujoco_navigation.launch.py backend_url:=http://127.0.0.1:5001
+ros2 launch fqplanner_nav_bridge mujoco_navigation.launch.py backend_url:=http://127.0.0.1:5001 \
+map:=/home/fangqi/WorkXCJ/FQPlanner_Mujoco/nav2/maps/slam/mujoco_slam.yaml
+```
+
+启动后会打开 RViz，并且 `mujoco_bridge` 会自动把 MuJoCo 当前底盘位姿发布到 `/initialpose`，用于让 AMCL 建立 `map -> odom`。
+
+如果看到：
+
+```text
+Timed out waiting for transform from base_link to map
+Invalid frame ID "map" ... frame does not exist
+```
+
+说明 Nav2 还没有拿到 `map -> odom -> base_link` 这条 TF。常见原因：
+
+- 没有重新 `colcon build`，新版本 bridge 没有发布 `/initialpose`。
+- 静态地图没有加载成功，检查 `/map`。
+- AMCL 还没有收到初始位姿，可以在 RViz 里用 `2D Pose Estimate` 手动点一下机器人当前位置。
+
+检查命令：
+
+```bash
+ros2 topic echo /map --once
+ros2 topic echo /initialpose --once
+ros2 run tf2_ros tf2_echo map base_link
 ```
 
 `nav2_goal_bridge` 默认监听：
