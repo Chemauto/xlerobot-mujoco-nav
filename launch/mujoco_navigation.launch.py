@@ -64,9 +64,7 @@ def generate_launch_description():
             output="screen",
             parameters=[{
                 "backend_url": backend_url,
-                "publish_initial_pose": True,
-                "initial_pose_repeats": 120,
-                "initial_pose_period": 1.0,
+                "fake_localization": True,
             }],
         ),
         IncludeLaunchDescription(

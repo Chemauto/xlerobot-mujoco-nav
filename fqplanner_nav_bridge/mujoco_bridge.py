@@ -51,6 +51,7 @@ class MujocoBridge(Node):
         self.declare_parameter("publish_initial_pose", False)
         self.declare_parameter("initial_pose_repeats", 10)
         self.declare_parameter("initial_pose_period", 1.0)
+        self.declare_parameter("fake_localization", False)
 
         self.backend_url = self.get_parameter("backend_url").value.rstrip("/")
         self.http_timeout = float(self.get_parameter("http_timeout").value)
@@ -148,6 +149,15 @@ class MujocoBridge(Node):
         tf.transform.rotation.z = qz
         tf.transform.rotation.w = qw
         self.tf_broadcaster.sendTransform(tf)
+
+        # Fake localization: publish identity map->odom so Nav2 skips AMCL
+        if bool(self.get_parameter("fake_localization").value):
+            map_tf = TransformStamped()
+            map_tf.header.stamp = stamp
+            map_tf.header.frame_id = self.map_frame
+            map_tf.child_frame_id = self.odom_frame
+            map_tf.transform.rotation.w = 1.0
+            self.tf_broadcaster.sendTransform(map_tf)
 
     def publish_scan(self):
         params = {
