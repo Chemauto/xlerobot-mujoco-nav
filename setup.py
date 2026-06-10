@@ -26,6 +26,7 @@ setup(
         "console_scripts": [
             "mujoco_bridge = fqplanner_nav_bridge.mujoco_bridge:main",
             "nav2_goal_bridge = fqplanner_nav_bridge.nav2_goal_bridge:main",
+            "encoder_odometry = fqplanner_nav_bridge.encoder_odometry:main",
         ],
     },
 )
